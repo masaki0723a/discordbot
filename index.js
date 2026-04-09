@@ -1,19 +1,3 @@
-console.log("起動確認OK");
-client.on("ready", () => {
-  console.log("Discord接続OK");
-});
-client.on("voiceStateUpdate", (oldState, newState) => {
-  console.log("VCイベント発火", oldState.channelId, "→", newState.channelId);
-});
-console.log("■■ 起動した ■■");
-client.on("ready", () => {
-  console.log("■■ Discord接続成功 ■■");
-});
-
-client.on("voiceStateUpdate", (oldState, newState) => {
-  console.log("VC検知", oldState.channelId, "→", newState.channelId);
-});
-
 require('dotenv').config();
 console.log("TOKEN:", process.env.TOKEN)
 
@@ -321,8 +305,3 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 /* ===== ログイン ===== */
 client.login(process.env.TOKEN);
-
-client.on("ready", async () => {
-  const ch = await client.channels.fetch("1489472275098108055");
-  ch.send("テスト送信");
-});
