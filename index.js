@@ -1,5 +1,4 @@
 require('dotenv').config({ path: __dirname + '/.env'});
-console.log("TOKEN:", process.env.TOKEN)
 
 const {
   Client,
@@ -126,7 +125,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
 /* VC削除 */
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-  if (!oldState.channelId || newState.channelId) return;
+  if (!oldState.channelId && newState.channelId) return;
 
   const ownerId = vcOwnerMap.get(oldState.channelId);
   if (oldState.member.id !== ownerId) return;
@@ -302,6 +301,3 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.message.delete().catch(() => {});
   }
 });
-
-/* ===== ログイン ===== */
-client.login(process.env.TOKEN);
