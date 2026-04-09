@@ -1,15 +1,25 @@
 {
-  "name": "tempvoice_notify_bot",
-  "version": "2.0.0",
+  "name": "discordbot",
+  "version": "1.0.0",
+  "description": "",
   "main": "index.js",
-  "type": "commonjs",
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
-    "start": "node index.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/masaki0723a/discordbot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/masaki0723a/discordbot/issues"
+  },
+  "homepage": "https://github.com/masaki0723a/discordbot#readme",
   "dependencies": {
-    "discord.js": "^14.24.2"
+    "discord.js": "^14.26.2",
+    "dotenv": "^17.4.1"
   }
 }
