@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env'});
 console.log("TOKEN:", process.env.TOKEN)
 
 const {
