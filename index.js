@@ -101,12 +101,10 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   // 入室
   if (!oldState.channelId && newState.channelId) {
 
-    if (!vcOwnerMap.has(newState.channelId)) return;
-
     const member = newState.member;
     const vc = newState.channel;
 
-    vcOwnerMap.set(vc.id, member.id);
+    if (vc.parentId !== config.tempVcCategoryId) return;
 
     const notifyChannel = await client.channels
       .fetch(config.notifyChannelId)
