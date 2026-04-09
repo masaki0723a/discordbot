@@ -148,7 +148,7 @@ const commands = [
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-(async () => {
+async function main() {
   try {
     await rest.put(
       Routes.applicationGuildCommands(
@@ -158,10 +158,15 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
       { body: commands }
     );
     console.log("Slash登録完了");
+
+    await client.login(process.env.TOKEN);
+
   } catch (err) {
     console.error(err);
   }
-})();
+}
+
+main();
 
 /* プロフ更新監視 */
 client.on(Events.MessageCreate, message => {
