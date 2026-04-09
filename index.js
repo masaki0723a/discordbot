@@ -126,7 +126,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     .catch(() => null);
 
   if (!notifyChannel) return;
-});
 
   const msg = await notifyChannel.send({
     content: `🔔 **VCの用途を選択してください**\n（${member.displayName} さん）`,
@@ -139,7 +138,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   }, 3 * 60 * 1000);
 
   messageOwnerMap.set(msg.id, { ownerId: member.id, timeoutId });
-;
+});
 
 /* VC削除 */
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
