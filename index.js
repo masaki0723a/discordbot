@@ -111,18 +111,22 @@ client.once(Events.ClientReady, async () => {
 });
 
 /* TempVC検知 */
-client.on(Events.VoiceStateUpdate, async(oldState, newState) => {
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   console.log("入室?", oldState.channelId, "→", newState.channelId);
-});
-if (!newState.channelId) return;
+
+  if (!newState.channelId) return;
 
   const member = newState.member;
   const vc = newState.channel;
 
   vcOwnerMap.set(vc.id, member.id);
 
-  const notifyChannel = await client.channels.fetch(config.notifyChannelId).catch(() => null);
+  const notifyChannel = await client.channels
+    .fetch(config.notifyChannelId)
+    .catch(() => null);
+
   if (!notifyChannel) return;
+});
 
   const msg = await notifyChannel.send({
     content: `🔔 **VCの用途を選択してください**\n（${member.displayName} さん）`,
