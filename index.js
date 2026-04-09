@@ -1,5 +1,3 @@
-
-
 console.log("起動確認OK");
 client.on("ready", () => {
   console.log("Discord接続OK");
@@ -137,7 +135,7 @@ if (!newState.channelId) return;
   }, 3 * 60 * 1000);
 
   messageOwnerMap.set(msg.id, { ownerId: member.id, timeoutId });
-});
+;
 
 /* VC削除 */
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
@@ -218,7 +216,7 @@ client.on(Events.MessageUpdate, (_, newMessage) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
 
-  /* ==== Slash: koso ==== */
+  /* ==== Slash: dp ==== */
   if (interaction.isChatInputCommand() && interaction.commandName === "dp") {
 
   await interaction.deferReply({ ephemeral: true });
