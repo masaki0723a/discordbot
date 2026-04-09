@@ -111,7 +111,7 @@ client.once(Events.ClientReady, async () => {
 });
 
 /* TempVC検知 */
-client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+client.on(Events.VoiceStateUpdate, async(oldState, newState) => {
   console.log("入室?", oldState.channelId, "→", newState.channelId);
 });
 if (!newState.channelId) return;
