@@ -281,3 +281,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.message.delete().catch(() => {});
   }
 });
+
+client.login(process.env.TOKEN);
