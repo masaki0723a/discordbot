@@ -1,0 +1,15 @@
+{
+  "name": "tempvoice_notify_bot",
+  "version": "2.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.24.2"
+  }
+}
