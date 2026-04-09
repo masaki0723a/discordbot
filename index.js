@@ -16,4 +16,3 @@ client.once(Events.ClientReady, () => {
 
 client.login(process.env.TOKEN);
 EOF
-//onakin//
