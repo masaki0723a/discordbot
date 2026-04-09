@@ -104,7 +104,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     const member = newState.member;
     const vc = newState.channel;
 
-    if (vc.parentId !== config.tempVcCategoryId) return;
+    vcOwnerMap.set(vc.id, member.id);
 
     const notifyChannel = await client.channels
       .fetch(config.notifyChannelId)
