@@ -99,31 +99,43 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   console.log("入室?", oldState.channelId, "→", newState.channelId);
 
   // 入室
-if (!oldState.channelId && newState.channelId) {
+  if (!oldState.channelId && newState.channelId) {
 
-  const member = newState.member;
-  const vc = newState.channel;
+    const member = newState.member;
+    const vc = newState.channel;
 
-  vcOwnerMap.set(vc.id, member.id);
+    vcOwnerMap.set(vc.id, member.id);
 
-  const notifyChannel = await client.channels
-    .fetch(config.notifyChannelId)
-    .catch(() => null);
+    const notifyChannel = await client.channels
+      .fetch(config.notifyChannelId)
+      .catch(() => null);
 
-  if (!notifyChannel) return;
+    if (!notifyChannel) return;
 
-  const msg = await notifyChannel.send({
-    content: `🔔 **VCの用途を選択してください**\n（${member.displayName} さん）`,
-    components: createButtons(),
-  });
+    const msg = await notifyChannel.send({
+      content: `🔔 **VCの用途を選択してください**\n（${member.displayName} さん）`,
+      components: createButtons(),
+    });
 
-  const timeoutId = setTimeout(async () => {
-    messageOwnerMap.delete(msg.id);
-    await msg.delete().catch(() => {});
-  }, 3 * 60 * 1000);
+    const timeoutId = setTimeout(async () => {
+      messageOwnerMap.delete(msg.id);
+      await msg.delete().catch(() => {});
+    }, 3 * 60 * 1000);
 
-  messageOwnerMap.set(msg.id, { ownerId: member.id, timeoutId });
-}
+    messageOwnerMap.set(msg.id, { ownerId: member.id, timeoutId });
+  }
+
+  // 退出
+  if (oldState.channelId && !newState.channelId) {
+    const ownerId = vcOwnerMap.get(oldState.channelId);
+    if (oldState.member.id !== ownerId) return;
+
+    const vc = oldState.guild.channels.cache.get(oldState.channelId);
+    if (vc) await vc.delete().catch(() => {});
+    vcOwnerMap.delete(oldState.channelId);
+  }
+
+}); 
 
 /* =========================================================
    こそプロ部分
