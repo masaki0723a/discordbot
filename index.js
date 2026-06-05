@@ -24,6 +24,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
   ],
+  partials: [1, 2], // Partialsの型（1: CHANNEL, 2: MESSAGE）※数字指定か、discord.jsからPartialsをインポートして指定
 });
 
 /* =========================================================
@@ -96,46 +97,66 @@ client.once(Events.ClientReady, async () => {
 /* TempVC検知 */
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
-  console.log("入室?", oldState.channelId, "→", newState.channelId);
+  // 1. チャンネルの移動（入室・退室・部屋移動）があったか厳密にチェック
+  // ミュート切り替えなどのノイズを完全に無視します
+  const isChannelChange = oldState.channelId !== newState.channelId;
+  if (!isChannelChange) return;
 
-  // 入室
-  if (!oldState.channelId && newState.channelId) {
-
+  // --- 【入室・部屋移動の処理】 ---
+  if (newState.channelId) {
     const member = newState.member;
     const vc = newState.channel;
 
-    vcOwnerMap.set(vc.id, member.id);
+    // ※重要※ TempVoiceの「作成用チャンネル」自体への入室は無視する
+    //（config.json に creatorChannelId を追加して判定するのが安全です）
+    if (vc.id === config.creatorChannelId) return;
 
-    const notifyChannel = await client.channels
-      .fetch(config.notifyChannelId)
-      .catch(() => null);
+    // すでにその部屋のオーナーが記録されている場合は、2人目以降の入室なので無視する
+    if (!vcOwnerMap.has(vc.id)) {
+      vcOwnerMap.set(vc.id, member.id);
 
-    if (!notifyChannel) return;
+      const notifyChannel = await client.channels
+        .fetch(config.notifyChannelId)
+        .catch(() => null);
 
-    const msg = await notifyChannel.send({
-      content: `🔔 **VCの用途を選択してください**\n（${member.displayName} さん）`,
-      components: createButtons(),
-    });
+      if (notifyChannel) {
+        const msg = await notifyChannel.send({
+          content: `🔔 **VCの用途を選択してください**\n（${member.displayName} さん）`,
+          components: createButtons(),
+        });
 
-    const timeoutId = setTimeout(async () => {
-      messageOwnerMap.delete(msg.id);
-      await msg.delete().catch(() => {});
-    }, 3 * 60 * 1000);
+        const timeoutId = setTimeout(async () => {
+          messageOwnerMap.delete(msg.id);
+          await msg.delete().catch(() => {});
+        }, 3 * 60 * 1000);
 
-    messageOwnerMap.set(msg.id, { ownerId: member.id, timeoutId });
+        messageOwnerMap.set(msg.id, { ownerId: member.id, timeoutId });
+      }
+    }
   }
 
-  // 退出
-  if (oldState.channelId && !newState.channelId) {
-    const ownerId = vcOwnerMap.get(oldState.channelId);
-    if (oldState.member.id !== ownerId) return;
+  // --- 【退出・部屋移動の処理】 ---
+  if (oldState.channelId) {
+    const oldVc = oldState.channel; // 退出前のチャンネルオブジェクト
 
-    const vc = oldState.guild.channels.cache.get(oldState.channelId);
-    if (vc) await vc.delete().catch(() => {});
-    vcOwnerMap.delete(oldState.channelId);
+    // 部屋に残っている人数が 0人（Botを除いて誰もいない）になったかチェック
+    // これにより、誰かが残っているのに部屋が消えるバグを防ぎます
+    const humanMembers = oldVc.members.filter(m => !m.user.bot);
+    
+    if (humanMembers.size === 0) {
+      // 誰もいなくなったらチャンネルを削除
+      await oldVc.delete().catch(() => {});
+      vcOwnerMap.delete(oldState.channelId);
+    } else {
+      // もしオーナーが抜けたけど他の人が残っている場合、残った人にオーナー権を譲渡する処理（任意）
+      const ownerId = vcOwnerMap.get(oldState.channelId);
+      if (oldState.member.id === ownerId) {
+        const nextOwner = humanMembers.first();
+        vcOwnerMap.set(oldState.channelId, nextOwner.id);
+      }
+    }
   }
-
-}); 
+});
 
 /* =========================================================
    こそプロ部分
@@ -191,15 +212,20 @@ async function main() {
 main();
 
 /* プロフ更新監視 */
-client.on(Events.MessageCreate, message => {
-  if (!config.PROFILE_CHANNEL_IDS?.includes(message.channel.id)) return;
-  profileCache.set(message.author.id, message.content);
-});
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  // 部分的なメッセージ（キャッシュ未登録）の場合は、完全なデータを取得（フェッチ）する
+  if (newMessage.partial) {
+    try {
+      await newMessage.fetch();
+    } catch (err) {
+      return; // 取得失敗時は無視
+    }
+  }
 
-client.on(Events.MessageUpdate, (_, newMessage) => {
   if (!newMessage.channel) return;
   if (!config.PROFILE_CHANNEL_IDS?.includes(newMessage.channel.id)) return;
-  if (!newMessage.author) return;
+  if (!newMessage.author || newMessage.author.bot) return; // Botの編集は無視
+  
   profileCache.set(newMessage.author.id, newMessage.content);
 });
 
@@ -212,53 +238,51 @@ client.on(Events.InteractionCreate, async (interaction) => {
   /* ==== Slash: dp ==== */
   if (interaction.isChatInputCommand() && interaction.commandName === "dp") {
 
-  await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ ephemeral: true });
 
-  const voiceChannel = interaction.member.voice.channel;
+    const voiceChannel = interaction.member.voice.channel;
 
-  if (!voiceChannel) {
-    return interaction.editReply({ content: "VCに入ってから使用してください" });
-  }
+    if (!voiceChannel) {
+      return interaction.editReply({ content: "VCに入してから使用してください" });
+    }
 
-  const members = [...voiceChannel.members.values()];
-  const embeds = [];
+    const members = [...voiceChannel.members.values()];
+    const embeds = [];
 
-  const limitedMembers = members.slice(0, 10);
+    const limitedMembers = members.slice(0, 10);
 
-  for (const vcMember of limitedMembers) {
+    for (const vcMember of limitedMembers) {
+      const profileText = profileCache.get(vcMember.id) || "プロフィール未登録";
 
-    const profileText =
-      profileCache.get(vcMember.id) || "プロフィール未登録";
+      const roles =
+        vcMember.roles.cache
+          .filter(r => r.name !== "@everyone")
+          .map(r => r.name)
+          .join(", ") || "ロールなし";
 
-    const roles =
-      vcMember.roles.cache
-        .filter(r => r.name !== "@everyone")
-        .map(r => r.name)
-        .join(", ") || "ロールなし";
+      const embed = new EmbedBuilder()
+        .setColor(0x2b2d31)
+        .setAuthor({
+          name: vcMember.displayName,
+          iconURL: vcMember.displayAvatarURL()
+        })
+        .setDescription(
+          `🆔 <@${vcMember.id}>\n\n📝 ${profileText}\n\n🎭ロール ${roles}`
+        );
 
-    const embed = new EmbedBuilder()
-      .setColor(0x2b2d31)
-      .setAuthor({
-        name: vcMember.displayName,
-        iconURL: vcMember.displayAvatarURL()
-      })
-      .setDescription(
-        `🆔 <@${vcMember.id}>\n\n📝 ${profileText}\n\n🎭ロール ${roles}`
+      embeds.push(embed);
+    }
+
+    if (members.length > 10) {
+      embeds.push(
+        new EmbedBuilder()
+          .setColor(0xff5555)
+          .setDescription(`⚠ VC人数が多いため、先頭10人のみ表示しています。`)
       );
+    }
 
-    embeds.push(embed);
+    return interaction.editReply({ embeds });
   }
-
-  if (members.length > 10) {
-    embeds.push(
-      new EmbedBuilder()
-        .setColor(0xff5555)
-        .setDescription(`⚠ VC人数が多いため、先頭10人のみ表示しています。`)
-    );
-  }
-
-  return interaction.editReply({ embeds });
-}
 
   /* ==== ボタン処理（既存通知機能） ==== */
   if (!interaction.isButton()) return;
@@ -291,22 +315,34 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const messageFn = MESSAGE_MAP[interaction.customId];
     if (!label) throw new Error();
 
+    // 1. 正常な応答をDiscordに返し、画面の「インタラクションに失敗しました」を防ぐ
+    await interaction.deferUpdate().catch(() => {});
+
+    // 2. VCの名前を変更
     await vc.setName(label);
 
+    // 3. 通知チャンネルへの送信
     const notifyChannel = await client.channels.fetch(config.notifyChannelId);
-
     await notifyChannel.send({
       content: `${getTimeRoleMention()}\n${messageFn(interaction.member.displayName)}`,
     });
 
+    // 4. 後片付け
     clearTimeout(data.timeoutId);
     messageOwnerMap.delete(interaction.message.id);
     await interaction.message.delete().catch(() => {});
-  } catch {
+
+  } catch (error) {
+    console.error(error);
+    // エラー時もボタンのぐるぐるを止めるために応答を返す
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.deferUpdate().catch(() => {});
+    }
     clearTimeout(data.timeoutId);
     messageOwnerMap.delete(interaction.message.id);
     await interaction.message.delete().catch(() => {});
   }
 });
+
 
 client.login(process.env.TOKEN);
