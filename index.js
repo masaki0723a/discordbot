@@ -134,6 +134,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       }
     }
   }
+});
 
 /* =========================================================
    こそプロ部分
