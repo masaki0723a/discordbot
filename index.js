@@ -135,29 +135,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     }
   }
 
-  // --- 【退出・部屋移動の処理】 ---
-  if (oldState.channelId) {
-    const oldVc = oldState.channel; // 退出前のチャンネルオブジェクト
-
-    // 部屋に残っている人数が 0人（Botを除いて誰もいない）になったかチェック
-    // これにより、誰かが残っているのに部屋が消えるバグを防ぎます
-    const humanMembers = oldVc.members.filter(m => !m.user.bot);
-    
-    if (humanMembers.size === 0) {
-      // 誰もいなくなったらチャンネルを削除
-      await oldVc.delete().catch(() => {});
-      vcOwnerMap.delete(oldState.channelId);
-    } else {
-      // もしオーナーが抜けたけど他の人が残っている場合、残った人にオーナー権を譲渡する処理（任意）
-      const ownerId = vcOwnerMap.get(oldState.channelId);
-      if (oldState.member.id === ownerId) {
-        const nextOwner = humanMembers.first();
-        vcOwnerMap.set(oldState.channelId, nextOwner.id);
-      }
-    }
-  }
-});
-
 /* =========================================================
    こそプロ部分
 ========================================================= */
